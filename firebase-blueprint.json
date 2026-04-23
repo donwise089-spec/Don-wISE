@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Public and private information for an authenticated user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "RizzHistory": {
+      "title": "Rizz History",
+      "description": "A record of generated rizz lines for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "platform": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "rizzLines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "text": { "type": "string" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "rizzLines", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Stores user profile data."
+    },
+    "/rizz_history/{historyId}": {
+      "schema": "RizzHistory",
+      "description": "Stores individual generation events."
+    }
+  }
+}

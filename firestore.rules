@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 1. Users collection rules
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.uid == userId &&
+               data.email is string && data.email.size() <= 256 &&
+               (data.displayName == null || (data.displayName is string && data.displayName.size() <= 128)) &&
+               (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2000000)); // Increased for base64
+      }
+
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt'])
+      );
+    }
+
+    // 2. Rizz History rules
+    match /rizz_history/{historyId} {
+      function isValidRizzHistory(data) {
+        return isValidId(data.userId) &&
+               data.userId == request.auth.uid &&
+               data.rizzLines is list && data.rizzLines.size() > 0 && data.rizzLines.size() <= 5 &&
+               (data.platform == null || (data.platform is string && data.platform.size() <= 64)) &&
+               (data.mediaUrl == null || (data.mediaUrl is string && data.mediaUrl.size() <= 1024));
+      }
+
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidRizzHistory(incoming()) && incoming().createdAt == request.time;
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}
